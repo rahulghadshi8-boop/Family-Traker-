@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Family Tracker</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f8;height:100vh;display:flex;flex-direction:column;max-width:420px;margin:0 auto;overflow:hidden;}
+
+/* LOGIN SCREEN */
+#login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#1d4ed8 0%,#1e40af 50%,#1e3a8a 100%);z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 32px;max-width:420px;margin:0 auto;}
+.login-logo{font-size:72px;margin-bottom:16px;}
+.login-title{font-size:28px;font-weight:900;color:#fff;text-align:center;margin-bottom:8px;}
+.login-sub{font-size:14px;color:#bfdbfe;text-align:center;line-height:1.6;margin-bottom:48px;}
+#google-login-btn{width:100%;padding:16px;border-radius:16px;border:none;background:#fff;color:#111;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,0.2);}
+#google-login-btn img{width:24px;height:24px;}
+.login-note{font-size:12px;color:#93c3fd;text-align:center;margin-top:20px;line-height:1.6;}
+
+/* LOADING */
+#loading-screen{position:fixed;inset:0;background:#fff;z-index:8000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;max-width:420px;margin:0 auto;}
+.spinner{width:48px;height:48px;border:4px solid #e5e7eb;border-top-color:#1d4ed8;border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:15px;color:#6b7280;font-weight:600;}
+
+/* HEADER */
+#header{background:#fff;padding:14px 18px 10px;border-bottom:1px solid #e5e7eb;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;position:relative;}
+#header-left h1{font-size:19px;font-weight:800;color:#111;}
+#header-left p{font-size:11px;color:#6b7280;margin-top:1px;}
+#user-avatar{width:34px;height:34px;border-radius:50%;border:2px solid #1d4ed8;cursor:pointer;object-fit:cover;}
+#user-avatar-placeholder{width:34px;height:34px;border-radius:50%;background:#1d4ed8;color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+#gps-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;margin-right:4px;animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* TABS */
+#tabs{display:flex;background:#fff;padding:0 16px 12px;gap:6px;flex-shrink:0;}
+.tab{flex:1;padding:8px;border-radius:10px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;}
+.tab.active{background:#1d4ed8;color:#fff;}
+.tab.inactive{background:#f1f5f9;color:#6b7280;}
+
+/* MAP */
+#map-view{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+#map{flex:1;position:relative;}
+#locate-btn{position:absolute;right:12px;bottom:170px;width:40px;height:40px;border-radius:50%;background:#fff;border:none;box-shadow:0 2px 10px rgba(0,0,0,0.2);font-size:18px;cursor:pointer;z-index:1000;display:flex;align-items:center;justify-content:center;}
+
+/* MEMBER CARD */
+#member-card{background:#fff;border-top:1px solid #e5e7eb;padding:14px 18px;flex-shrink:0;}
+.card-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.card-avatar{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:18px;flex-shrink:0;}
+.card-name{font-weight:800;font-size:16px;color:#111;}
+.card-area{font-size:12px;color:#6b7280;margin-top:2px;}
+.card-status{font-size:13px;font-weight:700;}
+.card-battery{font-size:11px;margin-top:2px;}
+.card-actions{display:flex;gap:8px;}
+.action-box{flex:1;border-radius:12px;padding:10px;text-align:center;border:none;font-size:13px;font-weight:700;cursor:pointer;}
+.dist-box{background:#f8fafc;color:#1d4ed8;}
+.dist-box span{display:block;font-size:18px;font-weight:800;}
+.nav-box{background:#1d4ed8;color:#fff;}
+.call-box{background:#f0fdf4;color:#16a34a;}
+
+/* LIST VIEW */
+#list-view{flex:1;overflow-y:auto;display:none;}
+.section-label{padding:10px 18px 6px;font-size:11px;font-weight:700;color:#9ca3af;letter-spacing:0.5px;}
+.member-item{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background 0.15s;}
+.member-item.selected{background:#eff6ff;border-left:3px solid #1d4ed8;}
+.list-avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px;flex-shrink:0;position:relative;}
+.status-dot{position:absolute;bottom:1px;right:1px;width:12px;height:12px;border-radius:50%;border:2px solid #fff;}
+.list-info{flex:1;min-width:0;}
+.list-name{font-weight:700;font-size:14px;color:#111;}
+.list-area{font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;}
+.list-right{text-align:right;flex-shrink:0;}
+.list-dist{font-size:13px;font-weight:700;}
+#add-list-btn{margin:12px 14px;width:calc(100% - 28px);padding:14px;border-radius:14px;border:2px dashed #d1d5db;background:transparent;color:#6b7280;font-size:14px;font-weight:600;cursor:pointer;}
+
+/* ADD MODAL */
+#modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:5000;display:none;align-items:flex-end;justify-content:center;}
+#modal{background:#fff;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:420px;}
+.modal-handle{width:40px;height:4px;background:#e5e7eb;border-radius:2px;margin:0 auto 20px;}
+.modal-title{font-size:18px;font-weight:800;color:#111;margin-bottom:4px;}
+.modal-sub{font-size:13px;color:#6b7280;margin-bottom:20px;}
+.modal-label{font-size:12px;font-weight:600;color:#374151;margin-bottom:6px;}
+.modal-input{width:100%;padding:12px 14px;border-radius:12px;border:1.5px solid #e5e7eb;font-size:14px;outline:none;font-family:inherit;margin-bottom:14px;}
+.modal-input:focus{border-color:#1d4ed8;}
+#invite-btn{width:100%;padding:14px;border-radius:14px;border:none;background:#1d4ed8;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;}
+#cancel-btn{width:100%;padding:12px;border-radius:14px;border:none;background:transparent;color:#6b7280;font-size:14px;cursor:pointer;}
+
+/* PROFILE MODAL */
+#profile-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:5000;display:none;align-items:flex-end;justify-content:center;}
+#profile-modal{background:#fff;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:420px;}
+.profile-header{display:flex;align-items:center;gap:16px;margin-bottom:20px;}
+.profile-pic{width:60px;height:60px;border-radius:50%;object-fit:cover;border:3px solid #1d4ed8;}
+.profile-pic-placeholder{width:60px;height:60px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center;border:3px solid #1d4ed8;}
+.profile-name{font-size:18px;font-weight:800;color:#111;}
+.profile-email{font-size:13px;color:#6b7280;margin-top:2px;}
+#logout-btn{width:100%;padding:14px;border-radius:14px;border:none;background:#fef2f2;color:#dc2626;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;}
+#close-profile-btn{width:100%;padding:12px;border-radius:14px;border:none;background:transparent;color:#6b7280;font-size:14px;cursor:pointer;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:9999;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.3);animation:fadeIn 0.3s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+.leaflet-popup-content-wrapper{border-radius:12px!important;box-shadow:0 4px 20px rgba(0,0,0,0.15)!important;}
+.leaflet-popup-content{margin:10px 14px!important;font-family:'Segoe UI',sans-serif!important;}
+.popup-name{font-weight:800;font-size:14px;color:#111;}
+.popup-area{font-size:12px;color:#6b7280;margin-top:2px;}
+.popup-dist{font-size:12px;font-weight:700;color:#1d4ed8;margin-top:4px;}
+.popup-time{font-size:11px;color:#9ca3af;margin-top:2px;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-logo">👨‍👩‍👦</div>
+  <div class="login-title">Family Tracker</div>
+  <div class="login-sub">Apni family ke saath connected raho.<br/>Real-time location share karo securely.</div>
+  <button id="google-login-btn">
+    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google"/>
+    Google se Login Karo
+  </button>
+  <div class="login-note">🔒 Sirf tumhari family dekh sakti hai location<br/>Same Google account = Same family group</div>
+</div>
+
+<!-- LOADING SCREEN -->
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <div class="loading-text">Location sync ho raha hai...</div>
+</div>
+
+<!-- MAIN APP -->
+<div id="header" style="display:none;">
+  <div id="header-left">
+    <h1>👨‍👩‍👦 Family</h1>
+    <p><span id="gps-dot"></span><span id="header-sub">Connecting...</span></p>
+  </div>
+  <div id="user-avatar-placeholder">R</div>
+</div>
+
+<div id="tabs" style="display:none;">
+  <button class="tab active" id="tab-map">🗺️ Map</button>
+  <button class="tab inactive" id="tab-list">👥 Members</button>
+</div>
+
+<div id="map-view" style="display:none;">
+  <div id="map">
+    <button id="locate-btn">🎯</button>
+  </div>
+  <div id="member-card">
+    <div class="card-row">
+      <div class="card-avatar" id="card-avatar" style="background:#1d4ed8;">R</div>
+      <div>
+        <div class="card-name" id="card-name">Loading...</div>
+        <div class="card-area" id="card-area">📍 Getting location...</div>
+      </div>
+      <div style="margin-left:auto;text-align:right;">
+        <div class="card-status" id="card-status">🟢 Live</div>
+        <div class="card-battery" id="card-battery"></div>
+      </div>
+    </div>
+    <div class="card-actions">
+      <div class="action-box dist-box" id="card-dist-box">
+        <span id="card-dist">—</span>Distance
+      </div>
+      <button class="action-box nav-box" id="nav-btn">🗺️ Navigate</button>
+      <button class="action-box call-box" id="call-btn">📞 Call</button>
+    </div>
+  </div>
+</div>
+
+<div id="list-view">
+  <div class="section-label" id="list-count">0 MEMBERS</div>
+  <div id="member-list-items"></div>
+  <button id="add-list-btn">+ Add Family Member</button>
+</div>
+
+<!-- ADD MEMBER MODAL -->
+<div id="modal-overlay">
+  <div id="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Family Member Add Karo</div>
+    <div class="modal-sub">Unhe apna Google account se login karna hoga is app mein</div>
+    <div class="modal-label">Naam</div>
+    <input class="modal-input" id="input-name" placeholder="e.g. Aai, Baba, Didi..."/>
+    <div class="modal-label">Email ID (Gmail)</div>
+    <input class="modal-input" id="input-email" placeholder="example@gmail.com" type="email"/>
+    <button id="invite-btn">✅ Add to Family</button>
+    <button id="cancel-btn">Cancel</button>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div id="profile-overlay">
+  <div id="profile-modal">
+    <div class="modal-handle"></div>
+    <div class="profile-header">
+      <div class="profile-pic-placeholder" id="profile-pic-el">R</div>
+      <div>
+        <div class="profile-name" id="profile-name-el">Loading...</div>
+        <div class="profile-email" id="profile-email-el">...</div>
+      </div>
+    </div>
+    <button id="logout-btn">🚪 Logout</button>
+    <button id="close-profile-btn">Close</button>
+  </div>
+</div>
+
+<!-- FIREBASE SDKs -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut as fbSignOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getDatabase, ref, set, onValue, serverTimestamp, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// ── Firebase Config ──────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyDvGF8aEyYkIb-tFl3M15A7c8H259h63eY",
+  authDomain: "family-traker-6a589.firebaseapp.com",
+  databaseURL: "https://family-traker-6a589-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "family-traker-6a589",
+  storageBucket: "family-traker-6a589.firebasestorage.app",
+  messagingSenderId: "385676666656",
+  appId: "1:385676666656:web:f3a3e865c6f7d2df2b9945"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+const provider = new GoogleAuthProvider();
+
+// ── State ────────────────────────────────────────────────────
+let currentUser = null;
+let myLat = null, myLng = null;
+let selectedId = null;
+let familyMembers = {};
+let memberListeners = {};
+const mapMarkers = {};
+let myCircle = null;
+const COLORS = ["#1d4ed8","#e11d48","#059669","#d97706","#7c3aed","#0891b2","#be185d"];
+
+// ── Leaflet Map ──────────────────────────────────────────────
+const leafletMap = L.map('map', {zoomControl:false}).setView([19.076, 72.877], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution:'© OpenStreetMap', maxZoom:19
+}).addTo(leafletMap);
+L.control.zoom({position:'bottomright'}).addTo(leafletMap);
+
+// ── Auth ─────────────────────────────────────────────────────
+async function signInWithGoogle() {
+  try {
+    showLoading(true);
+    await signInWithPopup(auth, provider);
+  } catch(e) {
+    showLoading(false);
+    showToast('❌ Login failed: ' + e.message);
+  }
+}
+
+async function doSignOut() {
+  if(currentUser) {
+    await set(ref(db, `locations/${currentUser.uid}/online`), false);
+  }
+  await fbSignOut(auth);
+  location.reload();
+}
+
+onAuthStateChanged(auth, async user => {
+  if(user) {
+    currentUser = user;
+    document.getElementById('login-screen').style.display = 'none';
+    showLoading(true);
+    setupProfile(user);
+    await registerUser(user);
+    showApp();
+    startGPS();
+    listenToFamily();
+  } else {
+    currentUser = null;
+    document.getElementById('login-screen').style.display = 'flex';
+    showLoading(false);
+    hideApp();
+  }
+});
+
+// ── Register User in DB ──────────────────────────────────────
+async function registerUser(user) {
+  const userRef = ref(db, `users/${user.uid}`);
+  await set(userRef, {
+    name: user.displayName || 'Family Member',
+    email: user.email,
+    photo: user.photoURL || '',
+    uid: user.uid,
+    lastActive: serverTimestamp()
+  });
+}
+
+// ── GPS Location ─────────────────────────────────────────────
+function startGPS() {
+  if(!navigator.geolocation) { showToast('❌ GPS not supported'); return; }
+  navigator.geolocation.watchPosition(async pos => {
+    myLat = pos.coords.latitude;
+    myLng = pos.coords.longitude;
+    const area = await reverseGeocode(myLat, myLng);
+    // Push to Firebase
+    await set(ref(db, `locations/${currentUser.uid}`), {
+      lat: myLat,
+      lng: myLng,
+      area: area,
+      accuracy: pos.coords.accuracy,
+      timestamp: serverTimestamp(),
+      online: true,
+      name: currentUser.displayName || 'Me',
+      email: currentUser.email,
+      photo: currentUser.photoURL || ''
+    });
+    // Update my circle on map
+    if(myCircle) leafletMap.removeLayer(myCircle);
+    myCircle = L.circle([myLat,myLng],{
+      radius: Math.min(pos.coords.accuracy, 100),
+      color:'#1d4ed8', fillOpacity:0.08, weight:1
+    }).addTo(leafletMap);
+    updateHeaderSub();
+  }, err => {
+    showToast('⚠️ Location error: ' + err.message);
+  }, {enableHighAccuracy:true, maximumAge:5000, timeout:20000});
+}
+
+// ── Reverse Geocode ──────────────────────────────────────────
+async function reverseGeocode(lat, lng) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {headers:{'Accept-Language':'en'}});
+    const d = await res.json();
+    const a = d.address;
+    const area = a.suburb||a.neighbourhood||a.village||a.town||a.city_district||'';
+    const city = a.city||a.town||a.state_district||'';
+    return area&&city ? `${area}, ${city}` : area||city||'Unknown';
+  } catch{ return 'Location found'; }
+}
+
+// ── Listen to Family Locations ───────────────────────────────
+function listenToFamily() {
+  // Listen to family group for this user
+  const familyRef = ref(db, `family/${currentUser.uid}`);
+  onValue(familyRef, snap => {
+    if(!snap.exists()) return;
+    const data = snap.val();
+    Object.keys(data).forEach(memberUid => {
+      if(!memberListeners[memberUid]) {
+        listenToMemberLocation(memberUid);
+      }
+    });
+  });
+  // Also listen to own location
+  listenToMemberLocation(currentUser.uid);
+}
+
+function listenToMemberLocation(uid) {
+  memberListeners[uid] = true;
+  const locRef = ref(db, `locations/${uid}`);
+  onValue(locRef, snap => {
+    if(!snap.exists()) return;
+    const data = snap.val();
+    data.uid = uid;
+    data.isMe = uid === currentUser.uid;
+    // Assign color
+    if(!familyMembers[uid]) {
+      const idx = Object.keys(familyMembers).length;
+      data.color = data.isMe ? '#1d4ed8' : COLORS[idx % COLORS.length];
+    } else {
+      data.color = familyMembers[uid].color;
+    }
+    data.avatar = (data.name || 'U')[0].toUpperCase();
+    familyMembers[uid] = data;
+    updateMarker(data);
+    if(selectedId === uid || (!selectedId && data.isMe)) {
+      selectedId = uid;
+      updateCard(data);
+    }
+    renderList();
+    updateHeaderSub();
+    showLoading(false);
+  });
+}
+
+// ── Map Marker ───────────────────────────────────────────────
+function makeIcon(m, isSelected) {
+  const size = isSelected ? 46 : 38;
+  const pulse = isSelected ? `<circle cx="${size/2}" cy="${size/2}" r="${size/2+4}" fill="${m.color}" opacity="0.15"/>` : '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size+8}" height="${size+14}">
+    ${pulse}
+    <circle cx="${size/2+4}" cy="${size/2+4}" r="${size/2}" fill="${m.color}" stroke="white" stroke-width="2.5"/>
+    <text x="${size/2+4}" y="${size/2+9}" text-anchor="middle" fill="white" font-size="${isSelected?16:13}" font-weight="800" font-family="Segoe UI,sans-serif">${m.avatar}</text>
+    <polygon points="${size/2},{${size+4}} ${size/2+8},{${size+4}} ${size/2+4},${size+14}" fill="${m.color}"/>
+    ${m.online!==false?`<circle cx="${size+4}" cy="8" r="5" fill="#22c55e" stroke="white" stroke-width="1.5"/>`:''}
+  </svg>`;
+  return L.divIcon({html:svg, iconSize:[size+8,size+14], iconAnchor:[size/2+4,size+14], popupAnchor:[0,-(size+14)], className:''});
+}
+
+function updateMarker(m) {
+  if(!m.lat || !m.lng) return;
+  const dist = m.isMe ? null : calcDist(m.lat, m.lng);
+  const timeAgo = m.timestamp ? getTimeAgo(m.timestamp) : 'Unknown';
+  if(mapMarkers[m.uid]) leafletMap.removeLayer(mapMarkers[m.uid]);
+  mapMarkers[m.uid] = L.marker([m.lat, m.lng], {icon: makeIcon(m, selectedId===m.uid)})
+    .addTo(leafletMap)
+    .bindPopup(`
+      <div class="popup-name">${m.name}${m.isMe?' (You)':''}</div>
+      <div class="popup-area">📍 ${m.area||'Getting location...'}</div>
+      ${dist ? `<div class="popup-dist">📏 ${dist} km away</div>` : '<div class="popup-dist">📍 Your location</div>'}
+      <div class="popup-time">🕐 ${timeAgo}</div>
+    `)
+    .on('click', () => selectMember(m.uid));
+}
+
+function selectMember(uid) {
+  selectedId = uid;
+  const m = familyMembers[uid];
+  if(!m || !m.lat) return;
+  Object.values(familyMembers).forEach(mem => {
+    if(mapMarkers[mem.uid]) {
+      leafletMap.removeLayer(mapMarkers[mem.uid]);
+      updateMarker(mem);
+    }
+  });
+  leafletMap.setView([m.lat, m.lng], 15, {animate:true});
+  mapMarkers[uid]?.openPopup();
+  updateCard(m);
+  renderList();
+}
+
+// ── Card ─────────────────────────────────────────────────────
+function updateCard(m) {
+  const dist = m.isMe ? '—' : (calcDist(m.lat, m.lng) + ' km');
+  document.getElementById('card-avatar').textContent = m.avatar;
+  document.getElementById('card-avatar').style.background = m.color;
+  document.getElementById('card-name').textContent = m.name + (m.isMe ? ' (You)' : '');
+  document.getElementById('card-area').textContent = '📍 ' + (m.area || 'Getting location...');
+  document.getElementById('card-status').textContent = m.online !== false ? '🟢 Live' : '🔴 Offline';
+  document.getElementById('card-dist').textContent = dist;
+  document.getElementById('card-battery').textContent = '';
+}
+
+// ── List ─────────────────────────────────────────────────────
+function renderList() {
+  const container = document.getElementById('member-list-items');
+  container.innerHTML = '';
+  const mems = Object.values(familyMembers);
+  document.getElementById('list-count').textContent = mems.length + ' MEMBERS';
+  // Me first
+  const sorted = [...mems.filter(m=>m.isMe), ...mems.filter(m=>!m.isMe)];
+  sorted.forEach(m => {
+    const dist = m.isMe ? 'You' : (m.lat ? calcDist(m.lat,m.lng)+' km' : '—');
+    const sdot = m.online !== false ? '#22c55e' : '#9ca3af';
+    const div = document.createElement('div');
+    div.className = 'member-item' + (selectedId===m.uid?' selected':'');
+    div.innerHTML = `
+      <div class="list-avatar" style="background:${m.color}">
+        ${m.avatar}
+        <div class="status-dot" style="background:${sdot}"></div>
+      </div>
+      <div class="list-info">
+        <div class="list-name">${m.name}${m.isMe?' (You)':''}</div>
+        <div class="list-area">📍 ${m.area||'Locating...'}</div>
+      </div>
+      <div class="list-right">
+        <div class="list-dist" style="color:${m.isMe?'#1d4ed8':'#374151'}">${dist}</div>
+        <div style="font-size:11px;color:#9ca3af;">${getTimeAgo(m.timestamp)}</div>
+      </div>`;
+    div.onclick = () => { selectMember(m.uid); switchTab('map'); };
+    container.appendChild(div);
+  });
+}
+
+// ── Add Family Member ────────────────────────────────────────
+async function addFamilyMember() {
+  const name = document.getElementById('input-name').value.trim();
+  const email = document.getElementById('input-email').value.trim();
+  if(!name || !email) { showToast('⚠️ Naam aur email dono chahiye'); return; }
+  // Find user by email in DB
+  showToast('🔍 User dhundh raha hoon...');
+  const usersRef = ref(db, 'users');
+  const snap = await get(usersRef);
+  if(!snap.exists()) { showToast('❌ User nahi mila. Pehle unhe app mein login karna hoga.'); return; }
+  let foundUid = null;
+  snap.forEach(child => {
+    if(child.val().email === email) foundUid = child.key;
+  });
+  if(!foundUid) {
+    showToast('❌ ' + email + ' ne abhi login nahi kiya. Pehle unhe app open karne kaho.');
+    closeModal();
+    return;
+  }
+  // Add to both sides family group
+  await set(ref(db, `family/${currentUser.uid}/${foundUid}`), true);
+  await set(ref(db, `family/${foundUid}/${currentUser.uid}`), true);
+  showToast('✅ ' + name + ' family mein add ho gaye!');
+  closeModal();
+  listenToMemberLocation(foundUid);
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+function calcDist(lat2, lng2) {
+  if(!myLat||!myLng) return '?';
+  const R=6371, dLat=(lat2-myLat)*Math.PI/180, dLng=(lng2-myLng)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(myLat*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return (R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))).toFixed(1);
+}
+
+function getTimeAgo(ts) {
+  if(!ts) return 'Unknown';
+  const diff = Date.now() - ts;
+  if(diff < 30000) return 'Just now';
+  if(diff < 60000) return Math.floor(diff/1000) + 's ago';
+  if(diff < 3600000) return Math.floor(diff/60000) + ' min ago';
+  return Math.floor(diff/3600000) + ' hr ago';
+}
+
+function updateHeaderSub() {
+  const online = Object.values(familyMembers).filter(m=>m.online!==false).length;
+  const now = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('header-sub').textContent = `${now} · ${online} online`;
+}
+setInterval(updateHeaderSub, 10000);
+setInterval(renderList, 30000); // refresh time ago
+
+// ── UI Helpers ───────────────────────────────────────────────
+function showApp() {
+  document.getElementById('header').style.display = 'flex';
+  document.getElementById('tabs').style.display = 'flex';
+  document.getElementById('map-view').style.display = 'flex';
+  setTimeout(() => leafletMap.invalidateSize(), 200);
+}
+function hideApp() {
+  document.getElementById('header').style.display = 'none';
+  document.getElementById('tabs').style.display = 'none';
+  document.getElementById('map-view').style.display = 'none';
+}
+function showLoading(v) {
+  document.getElementById('loading-screen').style.display = v ? 'flex' : 'none';
+}
+
+function setupProfile(user) {
+  const ph = document.getElementById('user-avatar-placeholder');
+  ph.textContent = (user.displayName||'U')[0].toUpperCase();
+  document.getElementById('profile-name-el').textContent = user.displayName || 'User';
+  document.getElementById('profile-email-el').textContent = user.email;
+}
+
+function switchTab(t) {
+  if(t==='map'){
+    document.getElementById('map-view').style.display='flex';
+    document.getElementById('list-view').style.display='none';
+    document.getElementById('tab-map').className='tab active';
+    document.getElementById('tab-list').className='tab inactive';
+    setTimeout(()=>leafletMap.invalidateSize(),100);
+  } else {
+    document.getElementById('map-view').style.display='none';
+    document.getElementById('list-view').style.display='block';
+    document.getElementById('tab-map').className='tab inactive';
+    document.getElementById('tab-list').className='tab active';
+    renderList();
+  }
+}
+
+function locateMe() {
+  if(myLat&&myLng) leafletMap.setView([myLat,myLng],16,{animate:true});
+  else showToast('📍 Location mil rahi hai...');
+}
+
+function openModal() { document.getElementById('modal-overlay').style.display='flex'; }
+function closeModal() {
+  document.getElementById('modal-overlay').style.display='none';
+  document.getElementById('input-name').value='';
+  document.getElementById('input-email').value='';
+}
+
+function openProfile() { document.getElementById('profile-overlay').style.display='flex'; }
+function closeProfile() { document.getElementById('profile-overlay').style.display='none'; }
+
+function openNavigate() {
+  const m = familyMembers[selectedId];
+  if(!m||m.isMe) { showToast('📍 Yeh tumhari location hai!'); return; }
+  window.open(`https://www.google.com/maps/dir/${myLat},${myLng}/${m.lat},${m.lng}`, '_blank');
+}
+function openCall() {
+  const m = familyMembers[selectedId];
+  if(!m||m.isMe) { showToast('📞 Yeh tum ho!'); return; }
+  showToast('📞 ' + m.name + ' ko call karo');
+}
+
+// ── Bind All Events ──────────────────────────────────────────
+document.getElementById('google-login-btn').addEventListener('click', signInWithGoogle);
+document.getElementById('tab-map').addEventListener('click', () => switchTab('map'));
+document.getElementById('tab-list').addEventListener('click', () => switchTab('list'));
+document.getElementById('locate-btn').addEventListener('click', locateMe);
+document.getElementById('nav-btn').addEventListener('click', openNavigate);
+document.getElementById('call-btn').addEventListener('click', openCall);
+document.getElementById('add-list-btn').addEventListener('click', openModal);
+document.getElementById('invite-btn').addEventListener('click', addFamilyMember);
+document.getElementById('cancel-btn').addEventListener('click', closeModal);
+document.getElementById('logout-btn').addEventListener('click', doSignOut);
+document.getElementById('close-profile-btn').addEventListener('click', closeProfile);
+document.getElementById('user-avatar-placeholder').addEventListener('click', openProfile);
+document.getElementById('modal-overlay').addEventListener('click', (e) => { if(e.target===document.getElementById('modal-overlay')) closeModal(); });
+document.getElementById('profile-overlay').addEventListener('click', (e) => { if(e.target===document.getElementById('profile-overlay')) closeProfile(); });
+
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+</script>
+</body>
+</html>
